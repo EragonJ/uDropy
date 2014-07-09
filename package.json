@@ -3,11 +3,20 @@
   "author": "EragonJ <eragonj@eragonj.me>",
   "main": "index.html",
   "description": "This is a cross platform app that can help you easily share files into cloud",
-  "keywords": ["uDropy", "cloud", "share"],
+  "keywords": [
+    "uDropy",
+    "cloud",
+    "share"
+  ],
   "licenses": [
     {
       "type": "MIT",
       "url": "http://opensource.org/licenses/MIT"
     }
-  ]
+  ],
+  "devDependencies": {
+    "gulp": "~3.8.5",
+    "gulp-coffee": "~2.0.1",
+    "gulp-concat": "~2.3.0"
+  }
 }
