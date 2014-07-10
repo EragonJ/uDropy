@@ -1,7 +1,7 @@
 {
   "name": "uDropy",
   "author": "EragonJ <eragonj@eragonj.me>",
-  "main": "index.html",
+  "main": "app://udropy/index.html",
   "description": "This is a cross platform app that can help you easily share files into cloud",
   "keywords": [
     "uDropy",

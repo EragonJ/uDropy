@@ -9,8 +9,20 @@ menu = new gui.Menu()
 menu.append new gui.MenuItem(
   type: 'normal'
   label: 'Upload'
-  click: () ->
-    $('#fileDialog').click()
+  click: ->
+    FileManager.showFileDialog()
+)
+
+menu.append new gui.MenuItem(
+  type: 'normal'
+  label: 'Authenticate'
+  click: ->
+    dropboxClient.authenticate (err, client) ->
+      if err or !client.isAuthenticated()
+        console.error err
+        return
+      else
+        alert 'You already pass the authentication'
 )
 
 menu.append new gui.MenuItem(
