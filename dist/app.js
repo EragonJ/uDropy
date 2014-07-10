@@ -10,8 +10,15 @@ tray = new gui.Tray({
 menu = new gui.Menu();
 
 menu.append(new gui.MenuItem({
-  type: 'checkbox',
-  label: 'box1'
+  type: 'normal',
+  label: 'Upload',
+  click: function() {
+    return $('#fileDialog').click();
+  }
+}));
+
+menu.append(new gui.MenuItem({
+  type: 'separator'
 }));
 
 tray.menu = menu;

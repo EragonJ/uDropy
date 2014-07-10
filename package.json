@@ -18,5 +18,12 @@
     "gulp": "~3.8.5",
     "gulp-coffee": "~2.0.1",
     "gulp-concat": "~2.3.0"
+  },
+  "window": {
+    "show": false,
+    "toolbar": false,
+    "width": 0,
+    "height": 0,
+    "position": "center"
   }
 }
