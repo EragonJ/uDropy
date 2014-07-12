@@ -5,7 +5,7 @@ class FileManager
   @_fileRequests = []
   @_fileChooser = null
 
-  @fileInfoHandler: (evt) =>
+  @_fileInfoHandler: (evt) =>
     files = evt.target.files
     @_processFile file for file in files
 
@@ -13,9 +13,17 @@ class FileManager
     if @_isSupportedFile(file)
       newFile = new File(file, dropboxClient)
       newFile.read =>
-        newFile.upload()
-        @_fileRequests.push(newFile)
-        @_latestFileRequest = newFile
+        newFile.upload =>
+          # tell the tray to add one more item
+          tray.emit 'appendmenuitem', {
+            detail: {
+              name: newFile.fileInfo.name,
+              file: newFile
+            }
+          }
+
+          @_fileRequests.push(newFile)
+          @_latestFileRequest = newFile
 
     @_cleanField()
 
@@ -36,7 +44,7 @@ class FileManager
   @init: ->
     $(document).ready =>
       @_fileChooser = $(@_fileDialogSel)
-      @_fileChooser.change(@fileInfoHandler)
+      @_fileChooser.change(@_fileInfoHandler)
 
 # Make sure to init at first
 FileManager.init()

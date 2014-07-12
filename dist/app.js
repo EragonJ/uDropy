@@ -24,6 +24,7 @@ File = (function() {
   function File(file, dropboxClient) {
     this.file = file;
     this.fileInfo = this._getFileInfo(file);
+    this.fileInfoInServer = null;
     this.fileContent = null;
     this.client = dropboxClient;
   }
@@ -35,7 +36,7 @@ File = (function() {
     }
     name = '';
     possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    for (i = _i = 0; _i <= 5; i = ++_i) {
+    for (i = _i = 0; 0 <= length ? _i <= length : _i >= length; i = 0 <= length ? ++_i : --_i) {
       name += possible.charAt(Math.floor(Math.random() * possible.length));
     }
     return name;
@@ -61,6 +62,20 @@ File = (function() {
     return true;
   };
 
+  File.prototype.getSharedLink = function(callback) {
+    var path;
+    path = this.fileInfoInServer.path;
+    if (path) {
+      return this.client.makeUrl(path, {}, function(err, sharedUrl) {
+        if (err) {
+          return console.error(err);
+        } else {
+          return callback(sharedUrl.url);
+        }
+      });
+    }
+  };
+
   File.prototype.read = function(callback) {
     var reader;
     reader = new FileReader();
@@ -75,15 +90,19 @@ File = (function() {
     return reader.readAsArrayBuffer(this.file);
   };
 
-  File.prototype.upload = function() {
+  File.prototype.upload = function(callback) {
     this.client.onXhr.addListener(this._uploadingHandler);
-    this.client.writeFile(this.fileInfo.name, this.fileContent, function(error, stat) {
-      if (error) {
-        return console.log(error);
-      } else {
-        return console.log(stat);
-      }
-    });
+    this.client.writeFile(this.fileInfo.name, this.fileContent, (function(_this) {
+      return function(error, info) {
+        if (error) {
+          return console.log(error);
+        } else {
+          console.log(info);
+          _this.fileInfoInServer = info;
+          return callback();
+        }
+      };
+    })(this));
     return this.client.onXhr.removeListener(this._uploadingHandler);
   };
 
@@ -104,7 +123,7 @@ FileManager = (function() {
 
   FileManager._fileChooser = null;
 
-  FileManager.fileInfoHandler = function(evt) {
+  FileManager._fileInfoHandler = function(evt) {
     var file, files, _i, _len, _results;
     files = evt.target.files;
     _results = [];
@@ -121,9 +140,16 @@ FileManager = (function() {
       newFile = new File(file, dropboxClient);
       newFile.read((function(_this) {
         return function() {
-          newFile.upload();
-          _this._fileRequests.push(newFile);
-          return _this._latestFileRequest = newFile;
+          return newFile.upload(function() {
+            tray.emit('appendmenuitem', {
+              detail: {
+                name: newFile.fileInfo.name,
+                file: newFile
+              }
+            });
+            _this._fileRequests.push(newFile);
+            return _this._latestFileRequest = newFile;
+          });
         };
       })(this));
     }
@@ -146,7 +172,7 @@ FileManager = (function() {
     return $(document).ready((function(_this) {
       return function() {
         _this._fileChooser = $(_this._fileDialogSel);
-        return _this._fileChooser.change(_this.fileInfoHandler);
+        return _this._fileChooser.change(_this._fileInfoHandler);
       };
     })(this));
   };
@@ -157,16 +183,20 @@ FileManager = (function() {
 
 FileManager.init();
 
-var gui, menu, tray, win;
+var clipboard, gui, menu, tray, win;
 
 gui = require('nw.gui');
 
 win = gui.Window.get();
 
+menu = new gui.Menu();
+
 tray = new gui.Tray({
   title: 'uDropy',
   icon: 'img/icon.png'
 });
+
+clipboard = gui.Clipboard.get();
 
 tray.on('uploadingfile', function(e) {
   var done;
@@ -178,7 +208,18 @@ tray.on('uploadingfile', function(e) {
   }
 });
 
-menu = new gui.Menu();
+tray.on('appendmenuitem', function(e) {
+  return menu.append(new gui.MenuItem({
+    label: e.detail.name,
+    click: function() {
+      var file;
+      file = e.detail.file;
+      return file.getSharedLink(function(publicLink) {
+        return clipboard.set(publicLink);
+      });
+    }
+  }));
+});
 
 menu.append(new gui.MenuItem({
   label: 'Developer Tools',

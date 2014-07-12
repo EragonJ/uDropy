@@ -2,6 +2,7 @@ class File
   constructor: (file, dropboxClient) ->
     @file = file
     @fileInfo = @_getFileInfo(file)
+    @fileInfoInServer = null
     @fileContent = null
     @client = dropboxClient
 
@@ -9,7 +10,7 @@ class File
     name = ''
     possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
     name += possible.charAt(
-      Math.floor(Math.random() * possible.length)) for i in [0..5]
+      Math.floor(Math.random() * possible.length)) for i in [0..length]
     return name
 
   _getFileInfo: (file) ->
@@ -32,6 +33,15 @@ class File
     # otherwise, the XMLHttpRequest is canceled
     return true
 
+  getSharedLink: (callback) ->
+    path = @fileInfoInServer.path
+    if path
+      @client.makeUrl path, {}, (err, sharedUrl) ->
+        if err
+          console.error err
+        else
+          callback sharedUrl.url
+    
   read: (callback) ->
     reader = new FileReader()
     reader.onloadend = (evt) =>
@@ -42,13 +52,15 @@ class File
     reader.readAsArrayBuffer(@file)
 
   # how to send file
-  upload: ->
+  upload: (callback) ->
     @client.onXhr.addListener(@_uploadingHandler)
     @client.writeFile(@fileInfo.name, @fileContent,
-      (error, stat) ->
+      (error, info) =>
         if error
           console.log error
         else
-          console.log stat
+          console.log info
+          @fileInfoInServer = info
+          callback()
     )
     @client.onXhr.removeListener(@_uploadingHandler)

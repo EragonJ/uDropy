@@ -2,17 +2,31 @@ gui = require 'nw.gui'
 
 win = gui.Window.get()
 
+# create menu
+menu = new gui.Menu()
+
 # create tray
 tray = new gui.Tray({ title: 'uDropy', icon: 'img/icon.png' })
+
+# create clipboard
+clipboard = gui.Clipboard.get()
+
 tray.on 'uploadingfile', (e) ->
   done = e.detail.done
   if done < 100
     tray.title = done + '%'
   else
     tray.title = 'uDropy'
-
-# create menu
-menu = new gui.Menu()
+    
+tray.on 'appendmenuitem', (e) ->
+  menu.append new gui.MenuItem(
+    label: e.detail.name
+    click: ->
+      # File type
+      file = e.detail.file
+      file.getSharedLink (publicLink) ->
+        clipboard.set publicLink
+  )
 
 menu.append new gui.MenuItem(
   label: 'Developer Tools'
