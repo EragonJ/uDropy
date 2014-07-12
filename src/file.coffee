@@ -18,7 +18,20 @@ class File
       name: file.name or @_getRandomFileName(10)
       size: file.size
     }
-  
+
+  _uploadingHandler: (dbXhr) ->
+    console.log dbXhr
+    dbXhr.xhr.upload.onprogress = (event) ->
+      # TODO remove tray reference here
+      tray.emit('uploadingfile', {
+        detail: {
+          done: Math.floor((event.loaded / event.total) * 100)
+        }
+      })
+
+    # otherwise, the XMLHttpRequest is canceled
+    return true
+
   read: (callback) ->
     reader = new FileReader()
     reader.onloadend = (evt) =>
@@ -30,6 +43,7 @@ class File
 
   # how to send file
   upload: ->
+    @client.onXhr.addListener(@_uploadingHandler)
     @client.writeFile(@fileInfo.name, @fileContent,
       (error, stat) ->
         if error
@@ -37,3 +51,4 @@ class File
         else
           console.log stat
     )
+    @client.onXhr.removeListener(@_uploadingHandler)

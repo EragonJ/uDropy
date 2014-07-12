@@ -14,6 +14,10 @@ dropboxClient = new Dropbox.Client({
   key: DROPBOX_API_KEY
 });
 
+dropboxClient.authDriver(new Dropbox.AuthDriver.Redirect({
+  rememberUser: false
+}));
+
 var File;
 
 File = (function() {
@@ -45,6 +49,18 @@ File = (function() {
     };
   };
 
+  File.prototype._uploadingHandler = function(dbXhr) {
+    console.log(dbXhr);
+    dbXhr.xhr.upload.onprogress = function(event) {
+      return tray.emit('uploadingfile', {
+        detail: {
+          done: Math.floor((event.loaded / event.total) * 100)
+        }
+      });
+    };
+    return true;
+  };
+
   File.prototype.read = function(callback) {
     var reader;
     reader = new FileReader();
@@ -60,13 +76,15 @@ File = (function() {
   };
 
   File.prototype.upload = function() {
-    return this.client.writeFile(this.fileInfo.name, this.fileContent, function(error, stat) {
+    this.client.onXhr.addListener(this._uploadingHandler);
+    this.client.writeFile(this.fileInfo.name, this.fileContent, function(error, stat) {
       if (error) {
         return console.log(error);
       } else {
         return console.log(stat);
       }
     });
+    return this.client.onXhr.removeListener(this._uploadingHandler);
   };
 
   return File;
@@ -143,6 +161,16 @@ win = gui.Window.get();
 tray = new gui.Tray({
   title: 'uDropy',
   icon: 'img/icon.png'
+});
+
+tray.on('uploadingfile', function(e) {
+  var done;
+  done = e.detail.done;
+  if (done < 100) {
+    return tray.title = done + '%';
+  } else {
+    return tray.title = 'uDropy';
+  }
 });
 
 menu = new gui.Menu();

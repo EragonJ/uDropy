@@ -4,6 +4,12 @@ win = gui.Window.get()
 
 # create tray
 tray = new gui.Tray({ title: 'uDropy', icon: 'img/icon.png' })
+tray.on 'uploadingfile', (e) ->
+  done = e.detail.done
+  if done < 100
+    tray.title = done + '%'
+  else
+    tray.title = 'uDropy'
 
 # create menu
 menu = new gui.Menu()
