@@ -119,7 +119,7 @@ FileManager = (function() {
     var newFile;
     if (this._isSupportedFile(file)) {
       newFile = new File(file, dropboxClient);
-      return newFile.read((function(_this) {
+      newFile.read((function(_this) {
         return function() {
           newFile.upload();
           _this._fileRequests.push(newFile);
@@ -127,10 +127,15 @@ FileManager = (function() {
         };
       })(this));
     }
+    return this._cleanField();
   };
 
   FileManager._isSupportedFile = function(file) {
     return file.type.match('image.*');
+  };
+
+  FileManager._cleanField = function() {
+    return this._fileChooser.val('');
   };
 
   FileManager.showFileDialog = function() {

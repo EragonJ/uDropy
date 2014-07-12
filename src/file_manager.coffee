@@ -17,8 +17,17 @@ class FileManager
         @_fileRequests.push(newFile)
         @_latestFileRequest = newFile
 
+    @_cleanField()
+
   @_isSupportedFile: (file) ->
     return file.type.match 'image.*'
+
+  @_cleanField: ->
+    # Because we observe the change event, we have to
+    # make sure thsi value will be changed after uploading
+    # files. Otherwise, we are not able to upload the same
+    # file.
+    @_fileChooser.val('')
 
   # static method
   @showFileDialog: ->
