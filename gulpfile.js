@@ -11,3 +11,7 @@ gulp.task('default', function() {
     .pipe(concat('app.js'))
     .pipe(gulp.dest('./dist/'));
 });
+
+gulp.task('watch', function() {
+  gulp.watch('./src/*.coffee', ['default']);
+});

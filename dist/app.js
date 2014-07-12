@@ -6,7 +6,7 @@ gui.App.addOriginAccessWhitelistEntry('https://www.dropbox.com', 'app', 'udropy'
 
 var DROPBOX_API_KEY;
 
-DROPBOX_API_KEY = '9e7gwnpmvu4e38r';
+DROPBOX_API_KEY = 'roaryzterwxe8dd';
 
 var dropboxClient;
 
@@ -17,9 +17,57 @@ dropboxClient = new Dropbox.Client({
 var File;
 
 File = (function() {
-  function File(path) {}
+  function File(file, dropboxClient) {
+    this.file = file;
+    this.fileInfo = this._getFileInfo(file);
+    this.fileContent = null;
+    this.client = dropboxClient;
+  }
 
-  File.prototype.send = function() {};
+  File.prototype._getRandomFileName = function(length) {
+    var i, name, possible, _i;
+    if (length == null) {
+      length = 5;
+    }
+    name = '';
+    possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    for (i = _i = 0; _i <= 5; i = ++_i) {
+      name += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+    return name;
+  };
+
+  File.prototype._getFileInfo = function(file) {
+    return {
+      path: file.path,
+      name: file.name || this._getRandomFileName(10),
+      size: file.size
+    };
+  };
+
+  File.prototype.read = function(callback) {
+    var reader;
+    reader = new FileReader();
+    reader.onloadend = (function(_this) {
+      return function(evt) {
+        if (evt.target.readyState === FileReader.DONE) {
+          _this.fileContent = evt.target.result;
+          return callback();
+        }
+      };
+    })(this);
+    return reader.readAsArrayBuffer(this.file);
+  };
+
+  File.prototype.upload = function() {
+    return this.client.writeFile(this.fileInfo.name, this.fileContent, function(error, stat) {
+      if (error) {
+        return console.log(error);
+      } else {
+        return console.log(stat);
+      }
+    });
+  };
 
   return File;
 
@@ -39,12 +87,32 @@ FileManager = (function() {
   FileManager._fileChooser = null;
 
   FileManager.fileInfoHandler = function(evt) {
-    var file, path;
-    path = $(FileManager).val();
-    file = new File(path);
-    file.send();
-    FileManager._fileRequests.push(file);
-    return FileManager._latestFileRequest = file;
+    var file, files, _i, _len, _results;
+    files = evt.target.files;
+    _results = [];
+    for (_i = 0, _len = files.length; _i < _len; _i++) {
+      file = files[_i];
+      _results.push(FileManager._processFile(file));
+    }
+    return _results;
+  };
+
+  FileManager._processFile = function(file) {
+    var newFile;
+    if (this._isSupportedFile(file)) {
+      newFile = new File(file, dropboxClient);
+      return newFile.read((function(_this) {
+        return function() {
+          newFile.upload();
+          _this._fileRequests.push(newFile);
+          return _this._latestFileRequest = newFile;
+        };
+      })(this));
+    }
+  };
+
+  FileManager._isSupportedFile = function(file) {
+    return file.type.match('image.*');
   };
 
   FileManager.showFileDialog = function() {
@@ -66,9 +134,11 @@ FileManager = (function() {
 
 FileManager.init();
 
-var gui, menu, tray;
+var gui, menu, tray, win;
 
 gui = require('nw.gui');
+
+win = gui.Window.get();
 
 tray = new gui.Tray({
   title: 'uDropy',
@@ -76,6 +146,13 @@ tray = new gui.Tray({
 });
 
 menu = new gui.Menu();
+
+menu.append(new gui.MenuItem({
+  label: 'Developer Tools',
+  click: function() {
+    return win.showDevTools();
+  }
+}));
 
 menu.append(new gui.MenuItem({
   type: 'normal',

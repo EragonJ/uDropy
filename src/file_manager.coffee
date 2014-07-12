@@ -6,13 +6,19 @@ class FileManager
   @_fileChooser = null
 
   @fileInfoHandler: (evt) =>
-    path = $(this).val()
-    file = new File(path)
-    file.send()
+    files = evt.target.files
+    @_processFile file for file in files
 
-    # Keep the file requests
-    @_fileRequests.push(file)
-    @_latestFileRequest = file
+  @_processFile: (file) ->
+    if @_isSupportedFile(file)
+      newFile = new File(file, dropboxClient)
+      newFile.read =>
+        newFile.upload()
+        @_fileRequests.push(newFile)
+        @_latestFileRequest = newFile
+
+  @_isSupportedFile: (file) ->
+    return file.type.match 'image.*'
 
   # static method
   @showFileDialog: ->

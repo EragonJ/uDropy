@@ -20,10 +20,11 @@
     "gulp-concat": "~2.3.0"
   },
   "window": {
-    "show": false,
-    "toolbar": false,
-    "width": 0,
-    "height": 0,
-    "position": "center"
+    "show": true,
+    "toolbar": true,
+    "toolbar": true,
+    "position": "center",
+    "width": 500,
+    "height": 500
   }
 }

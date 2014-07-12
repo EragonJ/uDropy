@@ -1,10 +1,18 @@
 gui = require 'nw.gui'
 
+win = gui.Window.get()
+
 # create tray
 tray = new gui.Tray({ title: 'uDropy', icon: 'img/icon.png' })
 
 # create menu
 menu = new gui.Menu()
+
+menu.append new gui.MenuItem(
+  label: 'Developer Tools'
+  click: ->
+    win.showDevTools()
+)
 
 menu.append new gui.MenuItem(
   type: 'normal'
