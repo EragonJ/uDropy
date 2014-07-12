@@ -1,12 +1,28 @@
-var gui;
+var db, gui;
 
 gui = require('nw.gui');
 
 gui.App.addOriginAccessWhitelistEntry('https://www.dropbox.com', 'app', 'udropy', true);
 
-var DROPBOX_API_KEY;
+db = null;
+
+$(function() {
+  db = openDatabase('udropydb', '1.0', 'udropydb', 2 * 1024 * 1024);
+  db.transaction(function(tx) {
+    return tx.executeSql('CREATE TABLE IF NOT EXISTS uploaded_files ' + '(id unique, file, uploaded_time)');
+  });
+  return FileManager.init();
+});
+
+var BRANDING_NAME, DROPBOX_API_KEY, MAX_HISTORY_MENU_ITEM, PRESERVED_MENU_ITEM_COUNT;
 
 DROPBOX_API_KEY = 'roaryzterwxe8dd';
+
+BRANDING_NAME = 'uDropy';
+
+MAX_HISTORY_MENU_ITEM = 5;
+
+PRESERVED_MENU_ITEM_COUNT = 3;
 
 var dropboxClient;
 
@@ -21,12 +37,13 @@ dropboxClient.authDriver(new Dropbox.AuthDriver.Redirect({
 var File;
 
 File = (function() {
-  function File(file, dropboxClient) {
+  function File(file) {
     this.file = file;
     this.fileInfo = this._getFileInfo(file);
     this.fileInfoInServer = null;
     this.fileContent = null;
     this.client = dropboxClient;
+    this.db = db;
   }
 
   File.prototype._getRandomFileName = function(length) {
@@ -62,6 +79,18 @@ File = (function() {
     return true;
   };
 
+  File.prototype._saveFileIntoDB = function(fileInfoFromServer) {
+    var stringifiedInfo, uniqueId;
+    uniqueId = fileInfoFromServer.path;
+    stringifiedInfo = JSON.stringify(fileInfoFromServer);
+    this.db.transaction(function(tx) {
+      return tx.executeSql('DELETE FROM uploaded_files WHERE id = ?', [uniqueId]);
+    });
+    return this.db.transaction(function(tx) {
+      return tx.executeSql('INSERT INTO uploaded_files (id, file, uploaded_time) VALUES (?, ?, ?)', [uniqueId, stringifiedInfo, (new Date()).getTime()]);
+    });
+  };
+
   File.prototype.getSharedLink = function(callback) {
     var path;
     path = this.fileInfoInServer.path;
@@ -81,9 +110,14 @@ File = (function() {
     reader = new FileReader();
     reader.onloadend = (function(_this) {
       return function(evt) {
+        if (reader.error) {
+          alert('Read file error, please try again !');
+          console.log('Got error when reading file : ', render.error);
+          callback(true);
+        }
         if (evt.target.readyState === FileReader.DONE) {
           _this.fileContent = evt.target.result;
-          return callback();
+          return callback(false);
         }
       };
     })(this);
@@ -95,12 +129,14 @@ File = (function() {
     this.client.writeFile(this.fileInfo.name, this.fileContent, (function(_this) {
       return function(error, info) {
         if (error) {
-          return console.log(error);
+          alert('Upload file to dropbox error, please try again !');
+          console.log('Got error when uploading to dropbox : ', error);
         } else {
-          console.log(info);
           _this.fileInfoInServer = info;
-          return callback();
+          _this._saveFileIntoDB(_this.fileInfoInServer);
+          console.log('Upload file to dropbox successfully with info : ', info);
         }
+        return callback(error);
       };
     })(this));
     return this.client.onXhr.removeListener(this._uploadingHandler);
@@ -115,13 +151,15 @@ var FileManager;
 FileManager = (function() {
   function FileManager() {}
 
-  FileManager._fileDialogSel = '#fileDialog';
+  FileManager._db = null;
 
   FileManager._latestFileRequest = null;
 
+  FileManager._fileChooser = null;
+
   FileManager._fileRequests = [];
 
-  FileManager._fileChooser = null;
+  FileManager._fileDialogSel = '#fileDialog';
 
   FileManager._fileInfoHandler = function(evt) {
     var file, files, _i, _len, _results;
@@ -137,11 +175,17 @@ FileManager = (function() {
   FileManager._processFile = function(file) {
     var newFile;
     if (this._isSupportedFile(file)) {
-      newFile = new File(file, dropboxClient);
+      newFile = new File(file);
       newFile.read((function(_this) {
-        return function() {
-          return newFile.upload(function() {
-            tray.emit('appendmenuitem', {
+        return function(readFileError) {
+          if (readFileError) {
+            return;
+          }
+          return newFile.upload(function(uploadFileError) {
+            if (uploadFileError) {
+              return;
+            }
+            tray.emit('addmenuitem', {
               detail: {
                 name: newFile.fileInfo.name,
                 file: newFile
@@ -164,35 +208,38 @@ FileManager = (function() {
     return this._fileChooser.val('');
   };
 
+  FileManager.getRecentFiles = function() {
+    var sql;
+    sql = 'SELECT file FROM uploaded_files ORDER BY uploaded_time desc LIMIT ' + MAX_HISTORY_MENU_ITEM;
+    return FileManager._db.transaction(function(tx) {
+      return tx.executeSql(sql, [], function(tx, results) {
+        return console.log(results.rows.item(1).file);
+      });
+    });
+  };
+
   FileManager.showFileDialog = function() {
     return this._fileChooser.click();
   };
 
   FileManager.init = function() {
-    return $(document).ready((function(_this) {
-      return function() {
-        _this._fileChooser = $(_this._fileDialogSel);
-        return _this._fileChooser.change(_this._fileInfoHandler);
-      };
-    })(this));
+    this._db = db;
+    this._fileChooser = $(this._fileDialogSel);
+    return this._fileChooser.change(this._fileInfoHandler);
   };
 
   return FileManager;
 
 })();
 
-FileManager.init();
-
-var clipboard, gui, menu, tray, win;
-
-gui = require('nw.gui');
+var clipboard, menu, tray, win;
 
 win = gui.Window.get();
 
 menu = new gui.Menu();
 
 tray = new gui.Tray({
-  title: 'uDropy',
+  title: BRANDING_NAME,
   icon: 'img/icon.png'
 });
 
@@ -204,12 +251,15 @@ tray.on('uploadingfile', function(e) {
   if (done < 100) {
     return tray.title = done + '%';
   } else {
-    return tray.title = 'uDropy';
+    return tray.title = BRANDING_NAME;
   }
 });
 
-tray.on('appendmenuitem', function(e) {
-  return menu.append(new gui.MenuItem({
+tray.on('addmenuitem', function(e) {
+  if (menu.items.length >= PRESERVED_MENU_ITEM_COUNT + MAX_HISTORY_MENU_ITEM) {
+    menu.removeAt(PRESERVED_MENU_ITEM_COUNT + MAX_HISTORY_MENU_ITEM - 1);
+  }
+  return menu.insert(new gui.MenuItem({
     label: e.detail.name,
     click: function() {
       var file;
@@ -218,15 +268,8 @@ tray.on('appendmenuitem', function(e) {
         return clipboard.set(publicLink);
       });
     }
-  }));
+  }), PRESERVED_MENU_ITEM_COUNT);
 });
-
-menu.append(new gui.MenuItem({
-  label: 'Developer Tools',
-  click: function() {
-    return win.showDevTools();
-  }
-}));
 
 menu.append(new gui.MenuItem({
   type: 'normal',

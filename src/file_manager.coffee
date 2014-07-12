@@ -1,9 +1,10 @@
 class FileManager
   # static properties
-  @_fileDialogSel = '#fileDialog'
+  @_db = null
   @_latestFileRequest = null
-  @_fileRequests = []
   @_fileChooser = null
+  @_fileRequests = []
+  @_fileDialogSel = '#fileDialog'
 
   @_fileInfoHandler: (evt) =>
     files = evt.target.files
@@ -11,11 +12,17 @@ class FileManager
 
   @_processFile: (file) ->
     if @_isSupportedFile(file)
-      newFile = new File(file, dropboxClient)
-      newFile.read =>
-        newFile.upload =>
+      newFile = new File(file)
+      newFile.read (readFileError) =>
+        if readFileError
+          return
+
+        newFile.upload (uploadFileError) =>
+          if uploadFileError
+            return
+
           # tell the tray to add one more item
-          tray.emit 'appendmenuitem', {
+          tray.emit 'addmenuitem', {
             detail: {
               name: newFile.fileInfo.name,
               file: newFile
@@ -37,14 +44,21 @@ class FileManager
     # file.
     @_fileChooser.val('')
 
+  @getRecentFiles: =>
+    sql = 'SELECT file FROM uploaded_files ORDER BY uploaded_time desc LIMIT ' +
+      MAX_HISTORY_MENU_ITEM
+
+    # TODO
+    # we have to create File instance from this data
+    @_db.transaction (tx) ->
+      tx.executeSql sql, [], (tx, results) ->
+        console.log results.rows.item(1).file
+
   # static method
   @showFileDialog: ->
     @_fileChooser.click()
 
   @init: ->
-    $(document).ready =>
-      @_fileChooser = $(@_fileDialogSel)
-      @_fileChooser.change(@_fileInfoHandler)
-
-# Make sure to init at first
-FileManager.init()
+    @_db = db
+    @_fileChooser = $(@_fileDialogSel)
+    @_fileChooser.change(@_fileInfoHandler)

@@ -1,12 +1,10 @@
-gui = require 'nw.gui'
-
 win = gui.Window.get()
 
 # create menu
 menu = new gui.Menu()
 
 # create tray
-tray = new gui.Tray({ title: 'uDropy', icon: 'img/icon.png' })
+tray = new gui.Tray({ title: BRANDING_NAME, icon: 'img/icon.png' })
 
 # create clipboard
 clipboard = gui.Clipboard.get()
@@ -16,23 +14,22 @@ tray.on 'uploadingfile', (e) ->
   if done < 100
     tray.title = done + '%'
   else
-    tray.title = 'uDropy'
+    tray.title = BRANDING_NAME
     
-tray.on 'appendmenuitem', (e) ->
-  menu.append new gui.MenuItem(
+tray.on 'addmenuitem', (e) ->
+  # We only keep recent histories
+  if menu.items.length >= PRESERVED_MENU_ITEM_COUNT + MAX_HISTORY_MENU_ITEM
+    menu.removeAt PRESERVED_MENU_ITEM_COUNT + MAX_HISTORY_MENU_ITEM - 1
+
+  # Make sure we would append menuItem at the right position
+  menu.insert new gui.MenuItem(
     label: e.detail.name
     click: ->
       # File type
       file = e.detail.file
       file.getSharedLink (publicLink) ->
         clipboard.set publicLink
-  )
-
-menu.append new gui.MenuItem(
-  label: 'Developer Tools'
-  click: ->
-    win.showDevTools()
-)
+  ), PRESERVED_MENU_ITEM_COUNT
 
 menu.append new gui.MenuItem(
   type: 'normal'
